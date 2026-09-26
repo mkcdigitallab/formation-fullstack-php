@@ -1,72 +1,82 @@
 # Projet 05 — API de dépenses partagées
 
+| Paramètre | Valeur |
+|---|---|
+| Niveau | Intermédiaire/Avancé |
+| Prérequis | Projet 04 terminé, bases HTTP (verbes, codes de statut) |
+| Stack | PHP natif (pas de framework), PDO, MySQL, réponses JSON pures |
+| Durée indicative | 12 à 18 heures |
+
 ## Contexte
 
-Un groupe de colocataires ou d'amis veut suivre qui a payé quoi lors de
-sorties/achats communs, et savoir qui doit combien à qui — sans interface
-graphique cette fois : uniquement une **API JSON**.
+Toi et trois amis partagez un voyage. Chacun paie des choses différentes (hôtel, essence, courses) et à la fin il faut savoir qui doit combien à qui, sans y passer la soirée avec une calculatrice. Cette fois, pas d'interface web — uniquement une API JSON que n'importe quel client (mobile, front séparé, Postman) peut consommer.
 
 ## Objectifs pédagogiques
 
-- Concevoir et exposer une vraie API REST (codes HTTP corrects, JSON en
-  entrée/sortie, pas de vues HTML)
-- Écrire un algorithme de calcul (répartition de dettes) — le morceau de
-  "logique pure" le plus exigeant de la formation jusqu'ici
-- Manipuler des montants sans erreur d'arrondi
+- Construire une API REST sans framework : routeur maison, codes de statut HTTP corrects, réponses JSON structurées.
+- Implémenter un algorithme de répartition de dépenses et de calcul de soldes.
+- Gérer les erreurs API (400, 404, 422) de façon cohérente plutôt qu'avec des pages d'erreur HTML.
 
-## Fonctionnalités attendues (endpoints)
+## Entités et fonctionnalités attendues
 
-- `POST /groupes` — créer un groupe avec ses membres
-- `POST /groupes/{id}/depenses` — enregistrer une dépense (qui a payé,
-  montant, participants concernés)
-- `GET /groupes/{id}/depenses` — lister les dépenses du groupe
-- `GET /groupes/{id}/soldes` — calculer combien chaque membre doit ou est dû
-- `GET /groupes/{id}/remboursements` — proposer la liste minimale de
-  virements pour tout solder
+**Groupe** : nom, membres.
+**Membre** : nom (appartient à un groupe).
+**Dépense** : groupe, payeur (membre), montant, libellé, date, liste des bénéficiaires (par défaut tous les membres du groupe, à parts égales).
+
+Endpoints attendus (exemples, adapte les chemins) :
+- `POST /groupes` — créer un groupe.
+- `POST /groupes/{id}/membres` — ajouter un membre.
+- `POST /groupes/{id}/depenses` — enregistrer une dépense.
+- `GET /groupes/{id}/depenses` — lister les dépenses.
+- `GET /groupes/{id}/soldes` — calculer qui doit combien à qui.
 
 ## Règles métier
 
-- Une dépense est répartie équitablement entre les participants désignés
-  (pas forcément tous les membres du groupe).
-- Les montants sont manipulés en centimes (entiers), jamais en float, pour
-  éviter les erreurs d'arrondi.
-- Le calcul des soldes doit être exact : la somme de tous les soldes du
-  groupe doit toujours être égale à 0.
-- L'algorithme de remboursement doit minimiser le nombre de transactions
-  nécessaires pour tout solder (pas juste "chacun rembourse chacun").
-- Toute requête mal formée renvoie un code HTTP 422 avec un message JSON
-  explicite, jamais un crash PHP brut.
+1. Une dépense doit avoir un montant strictement positif.
+2. Le payeur doit être membre du groupe concerné.
+3. Les bénéficiaires listés doivent tous être membres du groupe.
+4. La répartition par défaut est à parts égales entre bénéficiaires ; les centimes non divisibles exactement sont attribués selon une règle que tu définis et documentes (ex : au payeur, ou au premier bénéficiaire par ordre alphabétique).
+5. Le calcul des soldes doit simplifier les dettes : si A doit 10 à B et B doit 10 à C, l'algorithme doit pouvoir réduire ça à « A doit 10 à C » plutôt que d'afficher les deux dettes séparément (réfléchis à un algorithme simple de compensation, pas besoin d'optimalité parfaite).
 
-## Contraintes techniques
+## Contraintes d'architecture
 
-- PHP 8.2+, architecture en couches, réponses en JSON strict
-- Codes HTTP corrects : 201 (création), 200 (lecture), 404 (groupe
-  inexistant), 422 (validation)
-- Tests unitaires sur l'algorithme de répartition et de minimisation des
-  remboursements — c'est le cœur du projet, à tester lourdement avec
-  plusieurs scénarios (3 personnes, 5 personnes, montants qui ne se
-  divisent pas rond)
+- Toutes les réponses sont en JSON, avec un code de statut HTTP cohérent (`201` à la création, `404` si la ressource n'existe pas, `422` pour une erreur de validation métier).
+- Le routeur (fichier unique ou petite classe) fait correspondre méthode + chemin à un contrôleur, sans dupliquer de logique.
+- Le calcul de solde est isolé dans une classe/fonction pure, testable avec un jeu de dépenses fourni en entrée, indépendamment de la base.
+- Aucun `echo` de HTML nulle part dans ce projet.
 
-## Livrables attendus
+## Modèle de données à concevoir
 
-- Code source en couches
-- Schéma de base de données
-- `README.md` de projet avec exemples de requêtes (curl ou Postman)
-- `docker-compose.yml` fonctionnel
-- Tests unitaires sur les calculs
+Réfléchis à comment stocker la relation « une dépense a plusieurs bénéficiaires » (table de liaison) et à la précision numérique à utiliser pour les montants (jamais de flottant pour de l'argent — documente ton choix : entiers en centimes, `DECIMAL`, etc.).
+
+## Questions de découverte
+
+1. Pourquoi ne jamais utiliser `float` pour des montants d'argent ?
+2. Quelle différence entre une erreur 400, une erreur 404 et une erreur 422 — donne un exemple précis pour chacune dans ce projet.
+3. Comment ton algorithme de simplification des dettes se comporte-t-il avec un groupe de 5 personnes et 10 dépenses croisées ?
+
+## Scénarios d'acceptation
+
+| # | Scénario | Résultat attendu |
+|---|---|---|
+| 1 | Création d'une dépense avec un montant négatif | 422, message clair |
+| 2 | Dépense avec un payeur hors du groupe | 422 |
+| 3 | Requête sur un groupe inexistant | 404 |
+| 4 | Trois dépenses croisées entre 3 membres | Soldes finaux corrects et simplifiés |
+| 5 | Dépense de 10 € partagée entre 3 personnes | Répartition cohérente avec la règle des centimes définie |
+
+## Livrables
+
+Identiques aux précédents, plus une collection Postman/Insomnia (ou fichier `.http`) documentant chaque endpoint avec un exemple de requête et de réponse.
 
 ## Checklist d'auto-évaluation
 
-- [ ] Aucun `float` utilisé pour manipuler de l'argent (uniquement des
-      entiers en centimes)
-- [ ] La somme des soldes d'un groupe est testée = 0 sur au moins 3
-      scénarios différents
-- [ ] Le nombre de remboursements proposés est minimal (teste : est-ce
-      qu'un cas à 4 personnes donne bien 3 transactions max, pas 6 ?)
-- [ ] Chaque endpoint renvoie le bon code HTTP, testé explicitement
+- [ ] Chaque endpoint renvoie le bon code HTTP dans les cas d'erreur.
+- [ ] Le calcul de solde est testé unitairement avec plusieurs jeux de données.
+- [ ] Aucun montant n'est manipulé en `float`.
 
 ## Bonus
 
-- Authentification simple par token pour sécuriser l'API
-- Export des soldes en CSV
-- Pagination sur la liste des dépenses
+- Authentification par clé API simple.
+- Export du solde en CSV.
+- Pagination sur la liste des dépenses.

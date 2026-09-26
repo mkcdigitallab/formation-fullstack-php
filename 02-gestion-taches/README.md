@@ -1,67 +1,78 @@
 # Projet 02 — Gestionnaire de tâches
 
+| Paramètre | Valeur |
+|---|---|
+| Niveau | Débutant/Intermédiaire |
+| Prérequis | Projet 01 terminé |
+| Stack | PHP natif (POO), PDO, MySQL |
+| Durée indicative | 8 à 12 heures |
+
 ## Contexte
 
-Une application de suivi de tâches type "to-do" mais avec de vraies règles de
-transition d'état — pas juste une case à cocher.
+Ton équipe (fictive, pour l'instant c'est juste toi et ton clavier) a besoin d'un outil pour suivre l'avancement des tâches d'un projet : ce qui est à faire, en cours, terminé, ou bloqué.
 
 ## Objectifs pédagogiques
 
-- Modéliser des transitions d'état strictes (machine à états simple)
-- Filtrer/trier des données proprement au niveau du Repository
-- Renforcer l'habitude de séparer validation, logique métier et accès aux
-  données
+- Modéliser des transitions d'état strictes (petite machine à états).
+- Construire des filtres combinables (statut, priorité, échéance).
+- Organiser un code qui commence à avoir plusieurs responsabilités croisées.
 
-## Fonctionnalités attendues
+## Entités et fonctionnalités attendues
 
-- Créer une tâche (titre, description, priorité, échéance, statut initial
-  "à faire")
-- Changer le statut d'une tâche : à faire → en cours → terminée, ou → annulée
-- Lister les tâches avec filtres : par statut, par priorité, en retard
-- Modifier une tâche tant qu'elle n'est pas terminée
-- Archiver les tâches terminées depuis plus de 30 jours
+**Tâche** : titre, description, statut, priorité, date d'échéance, date de création, date de complétion.
+
+Statuts autorisés : `à_faire`, `en_cours`, `terminée`, `bloquée`.
+
+- Créer, modifier, lister les tâches.
+- Changer le statut d'une tâche en respectant les transitions autorisées.
+- Filtrer par statut, priorité, et tâches en retard (échéance dépassée et non terminée).
+- Archiver une tâche terminée depuis plus de 30 jours (sans la supprimer).
 
 ## Règles métier
 
-- Une tâche ne peut pas passer directement de "à faire" à "terminée" : elle
-  doit obligatoirement passer par "en cours".
-- Une tâche "terminée" ou "annulée" ne peut plus être modifiée ni changer de
-  statut (état final).
-- Une tâche est "en retard" si sa date d'échéance est dépassée et qu'elle
-  n'est ni terminée ni annulée.
-- La priorité (basse/moyenne/haute/urgente) influence le tri par défaut des
-  listes (urgente en premier).
-- L'archivage ne supprime rien, il masque juste des vues par défaut.
+1. Transitions autorisées : `à_faire → en_cours`, `en_cours → terminée`, `en_cours → bloquée`, `bloquée → en_cours`. Toute autre transition est refusée.
+2. Une tâche `terminée` ne peut plus être modifiée, sauf réouverture explicite vers `en_cours`.
+3. Une date d'échéance ne peut pas être dans le passé à la création.
+4. Une tâche `bloquée` doit obligatoirement avoir un motif de blocage renseigné.
+5. Le passage à `terminée` enregistre automatiquement la date de complétion.
 
-## Contraintes techniques
+## Contraintes d'architecture
 
-- PHP 8.2+, architecture en couches
-- Utiliser un enum PHP pour le statut et la priorité (pas des chaînes libres)
-- Base de données relationnelle
-- Tests unitaires sur : les transitions autorisées/refusées, le calcul "en
-  retard", le tri par priorité
+- Isole la logique de transition d'état dans une classe dédiée (`TaskStatusTransition` ou équivalent) — le Service l'appelle, il ne réimplémente pas la logique.
+- Les filtres se composent : le Repository doit accepter plusieurs critères combinés sans que tu dupliques une méthode par combinaison.
+- Aucune chaîne de statut en dur dispersée dans le code : centralise les valeurs autorisées à un seul endroit.
 
-## Livrables attendus
+## Modèle de données à concevoir
 
-- Code source en couches
-- Schéma de base de données
-- `README.md` de projet
-- `docker-compose.yml` fonctionnel
-- Tests unitaires
+Réfléchis à la façon de stocker le statut (chaîne contrainte vs table de référence) et à comment tu gardes une trace du motif de blocage sans complexifier inutilement le schéma.
+
+## Questions de découverte
+
+1. Pourquoi centraliser les transitions d'état plutôt que de vérifier `if ($statut == '...')` à chaque endroit du code ?
+2. Comment un filtre combiné (statut + priorité + en retard) se traduit-il en SQL sans dupliquer les requêtes ?
+3. Que change le fait qu'une tâche terminée soit « verrouillée » sur la conception de ton formulaire d'édition ?
+
+## Scénarios d'acceptation
+
+| # | Scénario | Résultat attendu |
+|---|---|---|
+| 1 | Passage de `à_faire` à `terminée` directement | Refus, transition non autorisée |
+| 2 | Passage à `bloquée` sans motif | Refus |
+| 3 | Filtre « en retard » sur une tâche `terminée` en retard | Non affichée (elle est terminée, donc pas « en retard ») |
+| 4 | Réouverture d'une tâche terminée | Statut repasse à `en_cours`, date de complétion effacée |
+
+## Livrables
+
+Identiques au projet 01, plus un schéma explicite de la machine à états (diagramme simple, texte ou image).
 
 ## Checklist d'auto-évaluation
 
-- [ ] Impossible de forcer une transition d'état interdite, même en
-      manipulant l'URL/formulaire directement
-- [ ] Le calcul "en retard" est dans le Service ou le Model, jamais dupliqué
-      dans une vue
-- [ ] Les enums sont utilisés pour statut et priorité
-- [ ] Les filtres de liste sont gérés au niveau du Repository (pas de
-      filtrage en PHP après avoir tout chargé)
+- [ ] Toute transition interdite est refusée avec un message clair.
+- [ ] Aucun statut écrit en dur en dehors de la classe centrale.
+- [ ] Les filtres se combinent sans duplication de code.
 
 ## Bonus
 
-- Sous-tâches (une tâche parente ne peut être "terminée" que si toutes ses
-  sous-tâches le sont)
-- Historique des changements de statut (qui, quand)
-- Vue "tableau kanban" en plus de la liste
+- Historique des changements de statut (qui/quand, même sans authentification réelle — un champ texte suffit).
+- Tri par priorité puis échéance.
+- Sous-tâches simples.

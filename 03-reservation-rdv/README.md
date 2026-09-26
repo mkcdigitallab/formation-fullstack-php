@@ -1,73 +1,82 @@
-# Projet 03 — Réservation de rendez-vous
+# Projet 03 — Réservation de rendez-vous multi-praticiens
+
+| Paramètre | Valeur |
+|---|---|
+| Niveau | Intermédiaire |
+| Prérequis | Projets 01 et 02 terminés |
+| Stack | PHP natif (POO), PDO, MySQL |
+| Durée indicative | 10 à 15 heures |
 
 ## Contexte
 
-Un salon (coiffure, cabinet médical, ou autre — à toi de choisir le thème)
-propose plusieurs praticiens, chacun avec son propre agenda. Les clients
-prennent rendez-vous en ligne.
-
-C'est volontairement proche de ce qu'on a analysé ensemble dans
-`Reservation-Salles`, mais avec une contrainte en plus : **plusieurs
-ressources en parallèle** (plusieurs praticiens), ce qui complique la
-détection de conflit.
+Un petit cabinet (médical, coiffure, coaching — choisis ton thème) a plusieurs praticiens qui reçoivent des clients sur des créneaux. Il faut empêcher les doubles réservations tout en gérant plusieurs agendas en parallèle.
 
 ## Objectifs pédagogiques
 
-- Gérer des conflits temporels sur plusieurs ressources indépendantes
-- Renforcer les réflexes déjà vus (DTO, Validator, Repository, Service) sur
-  un cas plus riche
-- Introduire des créneaux avec durée variable selon le type de prestation
+- Détecter des conflits temporels par le calcul, pas par inspection visuelle.
+- Gérer plusieurs ressources (praticiens) qui partagent une même logique de disponibilité.
+- Distinguer validation de forme et invariant métier.
 
-## Fonctionnalités attendues
+## Entités et fonctionnalités attendues
 
-- Lister les praticiens et les prestations qu'ils proposent (avec durée)
-- Afficher les créneaux disponibles d'un praticien sur une journée donnée
-- Prendre un rendez-vous (client, praticien, prestation, date/heure)
-- Annuler un rendez-vous
-- Empêcher la prise de deux rendez-vous qui se chevauchent pour un même
-  praticien
+**Praticien** : nom, spécialité, actif.
+**Rendez-vous** : praticien, client (nom, contact), date_début, date_fin, statut (`confirmé`, `annulé`).
+
+- Lister les rendez-vous par praticien et par jour.
+- Créer un rendez-vous.
+- Annuler un rendez-vous (sans le supprimer).
+- Afficher les créneaux libres d'un praticien sur une journée donnée.
 
 ## Règles métier
 
-- La durée du rendez-vous est déterminée par la prestation choisie (pas
-  saisie librement par le client).
-- Deux rendez-vous confirmés chez le même praticien ne peuvent pas se
-  chevaucher ; des rendez-vous adjacents sont autorisés.
-- Un rendez-vous ne peut pas être pris en dehors des horaires d'ouverture
-  (à définir, ex. 8h-18h) ni un jour de fermeture du praticien.
-- Un rendez-vous doit être pris au moins 1h à l'avance.
-- Un rendez-vous annulé libère immédiatement le créneau.
+1. Le praticien existe et est actif.
+2. La date de début précède la date de fin.
+3. La durée est comprise entre 15 minutes et 3 heures.
+4. Le rendez-vous commence dans le futur.
+5. Aucun rendez-vous confirmé du même praticien ne chevauche la période demandée.
+6. Deux créneaux adjacents (fin de l'un = début de l'autre) sont autorisés.
+7. Un rendez-vous annulé ne bloque plus le créneau.
 
-## Contraintes techniques
+Chevauchement : conflit si `nouveau_début < fin_existante` ET `nouvelle_fin > début_existant`.
 
-- PHP 8.2+, architecture en couches
-- FastRoute + PHP-DI (comme Reservation-Salles) ou équivalent de ton choix
-- Base de données relationnelle avec au moins 4 tables liées (praticien,
-  prestation, rendez-vous, client)
-- Tests unitaires sur la détection de conflit avec plusieurs praticiens en
-  parallèle (vérifier qu'un conflit chez A n'empêche pas une prise chez B)
+## Contraintes d'architecture
 
-## Livrables attendus
+- La détection de conflit est une requête explicite et testable isolément (pas un `foreach` en PHP sur tous les rendez-vous chargés en mémoire, sauf si tu justifies ce choix pour un petit volume).
+- Le contrôleur ne calcule jamais de disponibilité lui-même.
+- Un Service `CreateRendezVous` orchestre les 7 règles dans un ordre que tu justifies.
 
-- Code source en couches
-- Schéma de base de données
-- `README.md` de projet
-- `docker-compose.yml` fonctionnel
-- Tests unitaires, y compris sur les cas limites (chevauchement exact aux
-  bornes, créneaux adjacents)
+## Modèle de données à concevoir
+
+Pense à l'indexation nécessaire pour que la recherche de chevauchement reste rapide, et à comment tu distingues un rendez-vous annulé d'un rendez-vous actif dans tes requêtes.
+
+## Questions de découverte
+
+1. Pourquoi la formule de chevauchement utilise des inégalités strictes et pas `<=` / `>=` ?
+2. Que se passe-t-il si deux utilisateurs réservent le même créneau à quelques millisecondes d'intervalle ? (Réfléchis-y, tu n'es pas obligé de le résoudre complètement ici — note le problème dans ton DevLog.)
+3. Pourquoi séparer la requête de disponibilité de la création du rendez-vous plutôt que de tout faire dans une seule méthode ?
+
+## Scénarios d'acceptation
+
+| # | Scénario | Résultat attendu |
+|---|---|---|
+| 1 | Créneau chevauchant un rendez-vous confirmé | Refus |
+| 2 | Créneau adjacent à un rendez-vous existant | Accepté |
+| 3 | Créneau identique à un rendez-vous annulé | Accepté |
+| 4 | Durée de 4 heures | Refus |
+| 5 | Rendez-vous dans le passé | Refus |
+
+## Livrables
+
+Identiques aux précédents, plus un petit texte expliquant ta stratégie de détection de conflit et ses limites.
 
 ## Checklist d'auto-évaluation
 
-- [ ] La détection de conflit est testée avec au moins 2 praticiens
-      différents pour vérifier qu'elle ne mélange pas leurs agendas
-- [ ] Le cas limite "10h-11h puis 11h-12h" est explicitement testé et accepté
-- [ ] Le cas limite "10h-11h et 10h30-11h30" est explicitement testé et
-      refusé
-- [ ] Aucun horaire hors ouverture n'est acceptable, même en modifiant le
-      formulaire côté client
+- [ ] La requête de chevauchement est testée avec au moins les 5 scénarios ci-dessus.
+- [ ] Aucun calcul de disponibilité dans le contrôleur.
+- [ ] Les créneaux adjacents sont bien acceptés (erreur fréquente à ce niveau).
 
 ## Bonus
 
-- Génération automatique des créneaux disponibles (pas juste validation à la
-  prise)
-- Rappel par email simulé (log dans un fichier) la veille du rendez-vous
+- Vue « planning de la semaine » par praticien.
+- Annulation avec motif obligatoire.
+- Empêcher qu'un même client ait deux rendez-vous qui se chevauchent, même chez des praticiens différents.

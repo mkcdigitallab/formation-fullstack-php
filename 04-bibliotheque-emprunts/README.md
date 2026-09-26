@@ -1,65 +1,85 @@
 # Projet 04 — Bibliothèque avec emprunts et pénalités
 
+| Paramètre | Valeur |
+|---|---|
+| Niveau | Intermédiaire |
+| Prérequis | Projet 03 terminé |
+| Stack | PHP natif (POO), PDO, MySQL |
+| Durée indicative | 12 à 16 heures |
+
 ## Contexte
 
-Une bibliothèque gère un catalogue de livres (avec plusieurs exemplaires par
-titre) et les emprunts de ses adhérents, avec calcul de retard.
+La petite bibliothèque de quartier gère encore ses prêts sur un cahier papier. Les retards ne sont jamais suivis, et personne ne sait combien d'exemplaires d'un même livre sont réellement disponibles. Tu digitalises tout ça.
 
 ## Objectifs pédagogiques
 
-- Gérer une relation "exemplaires multiples d'une même œuvre"
-- Faire des calculs métier basés sur des dates (pénalités de retard)
-- Renforcer la rigueur sur les états d'un emprunt
+- Modéliser une relation à trois niveaux (Livre → Exemplaire → Emprunt) sans tout aplatir.
+- Calculer des pénalités dérivées d'une donnée (le retard), pas stockées directement.
+- Gérer un cycle de vie complet : disponibilité → emprunt → retour → pénalité éventuelle.
 
-## Fonctionnalités attendues
+## Entités et fonctionnalités attendues
 
-- Catalogue de livres (titre, auteur, ISBN, nombre d'exemplaires total)
-- Emprunter un exemplaire disponible
-- Retourner un exemplaire emprunté
-- Lister les emprunts en cours d'un adhérent, avec ceux en retard mis en
-  évidence
-- Calculer et afficher la pénalité due pour un retour en retard
+**Livre** : titre, auteur, ISBN, catégorie.
+**Exemplaire** : livre, numéro d'inventaire, état (`disponible`, `emprunté`, `perdu`, `retiré`).
+**Membre** : nom, contact, statut (`actif`, `suspendu`).
+**Emprunt** : exemplaire, membre, date_emprunt, date_retour_prévue, date_retour_réelle (nulle tant que non rendu).
+
+- Un livre peut avoir plusieurs exemplaires physiques.
+- Emprunter un exemplaire disponible.
+- Enregistrer le retour d'un exemplaire.
+- Calculer la pénalité d'un retard au moment du retour.
+- Lister les emprunts en cours et en retard.
+- Suspendre automatiquement un membre ayant une pénalité impayée au-delà d'un seuil.
 
 ## Règles métier
 
-- Un adhérent ne peut pas emprunter un titre dont tous les exemplaires sont
-  déjà empruntés.
-- Un adhérent ne peut pas avoir plus de 3 emprunts en cours simultanément.
-- La durée d'emprunt standard est de 14 jours.
-- Une pénalité de 100 F par jour de retard s'applique au retour, jusqu'à un
-  plafond de 3000 F.
-- Un adhérent avec une pénalité impayée ne peut pas emprunter de nouveau
-  livre tant qu'il n'a pas régularisé.
+1. Un exemplaire ne peut être emprunté que s'il est `disponible`.
+2. Un membre `suspendu` ne peut emprunter aucun exemplaire.
+3. La durée d'emprunt standard est de 14 jours (constante configurable, pas codée en dur partout).
+4. Un membre ne peut avoir plus de 3 emprunts actifs simultanément.
+5. La pénalité est calculée en fonction du nombre de jours de retard au moment du retour (ex : montant fixe par jour de retard) — définis et documente ta formule.
+6. Un exemplaire rendu redevient `disponible`, sauf s'il est déclaré `perdu`.
+7. Un membre est suspendu automatiquement si le cumul de ses pénalités impayées dépasse un seuil que tu définis et justifies.
 
-## Contraintes techniques
+## Contraintes d'architecture
 
-- PHP 8.2+, architecture en couches
-- Modélisation correcte de la relation titre ↔ exemplaires ↔ emprunts (pas
-  un simple champ "disponible" booléen sur le livre)
-- Tests unitaires sur : le calcul de pénalité (plusieurs cas de durée de
-  retard, y compris pile 14 jours = pas de pénalité), la limite des 3
-  emprunts, le blocage si pénalité impayée
+- Le calcul de pénalité est une fonction pure et testable indépendamment de la base (donne-lui une date d'emprunt prévue et une date de retour réelle, elle retourne un montant).
+- Aucune requête Eloquent-like en dur dans les vues : les disponibilités affichées viennent d'une méthode du Repository, jamais d'un comptage fait à la volée dans le contrôleur.
+- La suspension automatique est déclenchée par un Service dédié, appelé après chaque retour — pas par une tâche cron externe à ce stade (garde ça pour un bonus).
 
-## Livrables attendus
+## Modèle de données à concevoir
 
-- Code source en couches
-- Schéma de base de données
-- `README.md` de projet
-- `docker-compose.yml` fonctionnel
-- Tests unitaires couvrant les règles ci-dessus
+Réfléchis à pourquoi on modélise un `Exemplaire` séparément d'un `Livre` (plusieurs copies physiques du même titre), et à comment relier proprement Emprunt, Exemplaire et Membre avec les bonnes clés étrangères et contraintes d'unicité (un exemplaire ne peut avoir qu'un seul emprunt actif à la fois).
+
+## Questions de découverte
+
+1. Pourquoi ne pas stocker directement le montant de la pénalité au lieu de le recalculer à partir des dates ?
+2. Que se passe-t-il si on modifie la durée standard d'emprunt après coup — quels emprunts en cours sont affectés ?
+3. Pourquoi séparer Livre et Exemplaire plutôt que de mettre une simple colonne « quantité » sur Livre ?
+
+## Scénarios d'acceptation
+
+| # | Scénario | Résultat attendu |
+|---|---|---|
+| 1 | Emprunt d'un exemplaire disponible par un membre actif ayant 2 emprunts en cours | Accepté |
+| 2 | Emprunt d'un 4ᵉ exemplaire par le même membre | Refus |
+| 3 | Emprunt par un membre suspendu | Refus |
+| 4 | Retour avec 5 jours de retard | Pénalité calculée et associée à l'emprunt |
+| 5 | Retour à temps | Aucune pénalité, exemplaire redevient disponible |
+| 6 | Cumul de pénalités dépassant le seuil | Membre automatiquement suspendu |
+
+## Livrables
+
+Identiques aux précédents, plus des tests unitaires isolés sur le calcul de pénalité (sans base de données).
 
 ## Checklist d'auto-évaluation
 
-- [ ] Le calcul de pénalité est isolé dans une fonction/méthode testable
-      indépendamment du reste
-- [ ] Le plafond de pénalité est bien appliqué (teste un retard de 60 jours)
-- [ ] La distinction "exemplaire" vs "titre" est claire dans le schéma —
-      deux copies du même livre ont des lignes séparées
-- [ ] Un adhérent bloqué ne peut pas contourner le blocage en modifiant
-      l'URL du formulaire d'emprunt
+- [ ] Le calcul de pénalité est testé unitairement, sans dépendre de PDO.
+- [ ] Impossible d'emprunter un exemplaire déjà emprunté.
+- [ ] La limite de 3 emprunts actifs est vérifiée par un test.
 
 ## Bonus
 
-- Système de réservation : un adhérent peut réserver un titre actuellement
-  indisponible et être notifié (log) quand un exemplaire se libère
-- Historique complet des emprunts d'un adhérent, même terminés
+- File d'attente de réservation sur un livre entièrement emprunté.
+- Notification (simulée, log ou e-mail simple) avant l'échéance.
+- Rapport mensuel des retards par membre.

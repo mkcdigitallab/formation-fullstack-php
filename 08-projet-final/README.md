@@ -1,55 +1,49 @@
-# Projet 08 — Projet final : tout combiné
+# Projet 08 — Projet final
+
+| Paramètre | Valeur |
+|---|---|
+| Niveau | Synthèse |
+| Prérequis | Projets 01 à 07 terminés |
+| Stack | PHP natif (POO), PDO, MySQL, Docker, CI/CD |
+| Durée indicative | 20 heures et plus |
 
 ## Contexte
 
-Pas de nouveau sujet imposé ici. Tu choisis un thème qui te motive
-(association sportive, événementiel, garage auto, pharmacie, école — ce que
-tu veux) et tu construis une application complète qui réutilise et combine
-tout ce que tu as musclé dans les 7 projets précédents.
+Il n'y a pas de cahier des charges fourni pour ce projet, volontairement. Après 7 projets guidés, l'objectif est de prouver que tu peux partir d'une idée à toi et la mener jusqu'au bout, avec les mêmes exigences que sur les projets précédents — sans que quelqu'un te tienne la main sur les règles métier.
 
-## Objectifs pédagogiques
+## Ce que tu dois faire toi-même, avant de coder
 
-- Concevoir un projet de A à Z sans cahier des charges détaillé fourni —
-  c'est toi qui écris tes propres spécifications, comme en vrai
-- Mettre en place un vrai workflow Git avec branches et pull requests
-- Mettre en place une intégration continue simple (GitHub Actions) qui fait
-  tourner les tests automatiquement
-- Déployer via Docker de façon reproductible
+1. **Choisir un thème** que tu maîtrises ou qui t'intéresse réellement (pas un simple remix d'un projet précédent — un vrai domaine avec ses propres règles).
+2. **Rédiger ton propre cahier des charges** : contexte, entités, fonctionnalités, règles métier numérotées, contraintes techniques. Fais-le sérieusement, comme si tu le donnais à quelqu'un d'autre à développer.
+3. **Faire valider ce cahier des charges avant de coder** (relis-le toi-même à froid le lendemain, ou fais-le relire).
 
-## Ce que le projet doit obligatoirement contenir
+## Exigences non négociables (héritées des 7 projets précédents)
 
-- Au moins 2 entités métier liées avec des règles de gestion réelles (pas
-  du simple CRUD sans contrainte)
-- Une authentification avec au moins 2 rôles
-- Une logique métier non triviale, testée unitairement (calcul, machine à
-  états, ou détection de conflit — au choix)
-- Une API JSON en plus des vues HTML pour au moins une ressource
-- Un `docker-compose.yml` qui lance l'application et sa base de données en
-  une commande depuis un clone frais du dépôt
+- Architecture en couches (Controller / Service / Repository / Model), aucune règle métier dans une vue ou un contrôleur.
+- Au moins une relation de données non triviale (comme au projet 03, 04 ou 06).
+- Au moins un ensemble de règles métier numérotées et testées.
+- Authentification et rôles si le domaine le justifie (sinon, documente pourquoi tu t'en passes).
+- Git discipliné : commits atomiques, messages clairs, aucune solution codée d'un coup en un seul commit géant.
+- Tests unitaires sur au moins la logique métier la plus complexe du projet.
 
-## Méthode imposée
+## Nouveauté par rapport aux projets précédents : Docker et CI/CD complets
 
-1. Écris toi-même un `README.md` de cahier des charges avant de coder,
-   sur le modèle des projets précédents (Contexte / Fonctionnalités /
-   Règles métier / Contraintes techniques).
-2. Travaille avec des branches Git (`feature/xxx`) et fusionne via des Pull
-   Requests sur GitHub, même en solo — relis ton propre diff avant de
-   merger.
-3. Ajoute un fichier `.github/workflows/tests.yml` qui lance
-   `vendor/bin/phpunit` à chaque push.
-4. Documente l'installation dans le README comme si un inconnu devait
-   lancer le projet sans ton aide.
+- Dockerfile fonctionnel (app + base de données via Docker Compose).
+- Pipeline CI (GitHub Actions ou GitLab CI, au choix) qui exécute au minimum : installation des dépendances, analyse statique si tu en utilises une, et tests.
+- Le pipeline doit être vert avant de considérer le projet terminé.
 
-## Checklist d'auto-évaluation finale
+## DevLog obligatoire
 
-- [ ] Un inconnu peut cloner le dépôt, lire le README, et lancer le projet
-      sans te poser une seule question
-- [ ] `git log` raconte une histoire cohérente du projet, pas une suite de
-      "fix", "wip", "update"
-- [ ] La CI passe au vert sur GitHub
-- [ ] Aucune règle métier n'est dupliquée entre le contrôleur HTML et
-      l'API JSON — elles partagent le même Service
-- [ ] Tu es capable d'expliquer, sans relire le code, pourquoi chaque
-      dossier de `src/` existe
+Comme sur les projets précédents mais cette fois sur l'ensemble du projet plutôt que par incrément : documente ton cahier des charges, tes choix d'architecture, au moins une difficulté réelle rencontrée et comment tu l'as résolue, et ce que tu changerais si tu recommençais.
 
-Si tu coches tout ça honnêtement, tu es sorti du "je galère sur tout".
+## Checklist d'auto-évaluation
+
+- [ ] Le cahier des charges a été écrit avant le code, pas après coup pour justifier ce qui existe déjà.
+- [ ] Aucune règle métier dans le contrôleur ou la vue.
+- [ ] Le pipeline CI est vert.
+- [ ] L'application tourne avec une seule commande (`docker compose up`).
+- [ ] Le DevLog explique de vraies décisions, pas une liste de fichiers créés.
+
+## Pour la suite
+
+Une fois ce projet terminé, tu as tout ce qu'il faut pour attaquer un vrai projet avec framework (Laravel, par exemple) en sachant exactement ce que le framework automatise à ta place — et pourquoi.
